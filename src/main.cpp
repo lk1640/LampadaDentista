@@ -11,9 +11,9 @@
 BearSSL::CertStore certStore;
 #include <time.h>
  
-const String FirmwareVer={"1.8"}; 
-#define URL_fw_Version "/programmer131/otaFiles/master/version.txt"
-#define URL_fw_Bin "https://raw.githubusercontent.com/programmer131/otaFiles/master/firmware.bin"
+const String FirmwareVer={"2.0"}; 
+#define URL_fw_Version "/lk1640/LampadaDentista/tree/master/test/version.txt"
+#define URL_fw_Bin "https://raw.githubusercontent.com/lk1640/LampadaDentista/tree/master/test/firmware.bin"
 
 const char* host = "raw.githubusercontent.com";
 const int httpsPort = 443;
@@ -180,8 +180,10 @@ void setup()
         Serial.flush();
         delay(1000);
     }
-
+    
+    Serial.println(FirmwareVer);
     FirmwareUpdate();
+    Serial.println(FirmwareVer);
 
 }
 
@@ -194,5 +196,5 @@ void fota(){
 void loop()
 {
 
-    drd.loop();
+    //drd.loop();
 }
