@@ -12,9 +12,8 @@ BearSSL::CertStore certStore;
 #include <time.h>
  
 const String FirmwareVer={"2.0"}; 
-#define URL_fw_Version "/lk1640/LampadaDentista/tree/master/test/version.txt"
-#define URL_fw_Bin "https://raw.githubusercontent.com/lk1640/LampadaDentista/tree/master/test/firmware.bin"
-
+#define URL_fw_Version "lk1640/LampadaDentista/blob/master/test/version.txt"
+#define URL_fw_Bin "https://github.com/lk1640/LampadaDentista/raw/master/test/firmware.bin"
 const char* host = "raw.githubusercontent.com";
 const int httpsPort = 443;
 
