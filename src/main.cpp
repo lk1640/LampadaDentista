@@ -1,7 +1,9 @@
 #include <Arduino.h>
-
-#include <WiFiManager.h>
-#include <DoubleResetDetector.h>
+#include <SPI.h>
+#include <PubSubClient.h>
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h> 
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
@@ -10,9 +12,13 @@
 BearSSL::CertStore certStore;
 #include <time.h>
  
+
+ const char* mqtt_server = "he3d.duckdns.org";
+
+
 const String FirmwareVer={"2.0"}; 
-#define URL_fw_Version "lk1640/LampadaDentista/blob/master/test/version.txt"
-#define URL_fw_Bin "https://github.com/lk1640/LampadaDentista/raw/master/test/firmware.bin"
+#define URL_fw_Version "/lk1640/LampadaDentista/master/test/version.txt"
+#define URL_fw_Bin "https://raw.githubusercontent.com/lk1640/LampadaDentista/master/test/firmware.bin"
 const char* host = "raw.githubusercontent.com";
 const int httpsPort = 443;
 
@@ -47,15 +53,36 @@ X509List cert(trustRoot);
 extern const unsigned char caCert[] PROGMEM;
 extern const unsigned int caCertLen;
 
-#define DRD_TIMEOUT 10
+//const char* ssid = "Clinica_Harmonia";
+//const char* password = "MINECRAFT2004";
 
-// RTC Memory Address for the DoubleResetDetector to use
-#define DRD_ADDRESS 0
+unsigned long lastMsg = 0;
+#define MSG_BUFFER_SIZE  (50)
+char msg[MSG_BUFFER_SIZE];
+int value = 0;
 
-DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
+//MQTT CONFIG
+const String HOSTNAME  = "Cadeira"; //NOME DO DEVICE, deverá ter um nome unico.
+const char * MQTT_COMMAND_TOPIC = "cadeira/emergencia"; //Topico onde o Device subscreve.
+const char * MQTT_STATE_TOPIC = "ledCadeira/state"; //Topico onde o Device publica.
 
-ESP8266WiFiMulti WiFiMulti;
+const char* MQTT_SERVER = "he3d.duckdns.org"; //IP ou DNS do Broker MQTT
 
+WiFiClient wclient;
+PubSubClient client(MQTT_SERVER, 9995, wclient);
+// Credrenciais ao broker mqtt. Caso nao tenha AUTH meter a false.
+#define MQTT_AUTH true
+#define MQTT_USERNAME "Clinica"
+#define MQTT_PASSWORD "sh3rm132412"
+
+// GPIOs ESP03 - 14,12,13,02,18
+//Saidas
+#define emergencia 14 
+#define agua 12
+
+//Entradas
+#define recepcao 13
+#define garrafa 02
 
 
 void setClock() {
@@ -124,73 +151,149 @@ void FirmwareUpdate()
     } 
   }
  }  
+/*void connect_wifi();
+unsigned long previousMillis_2 = 0;
+unsigned long previousMillis = 0;        // will store last time LED was updated
+const long interval = 60000;
+const long mini_interval = 1000;
+ void repeatedCall(){
+    unsigned long currentMillis = millis();
+    if ((currentMillis - previousMillis) >= interval) 
+    {
+      // save the last time you blinked the LED
+      previousMillis = currentMillis;
+      setClock();
+      Serial.println(FirmwareVer);
+      FirmwareUpdate();
+      Serial.println(FirmwareVer);
+    }
+
+    if ((currentMillis - previousMillis_2) >= mini_interval) {
+      static int idle_counter=0;
+      previousMillis_2 = currentMillis;    
+      Serial.print(" Active fw version:");
+      Serial.println(FirmwareVer);
+      Serial.print("Idle Loop....");
+      Serial.println(idle_counter++);
+     if(idle_counter%2==0)
+      digitalWrite(LED_BUILTIN, HIGH);
+     else 
+      digitalWrite(LED_BUILTIN, LOW);
+     if(WiFi.status() == !WL_CONNECTED) 
+          connect_wifi();
+   }
+ }*/
+
+  
+
+
+//INICIAR O MQTT
+//Verifica se o estado da ligação está ativa e se não estiver tenta conectar-se
+bool checkMqttConnection() {
+  if (!client.connected()) {
+    if (MQTT_AUTH ? client.connect(HOSTNAME.c_str(), MQTT_USERNAME, MQTT_PASSWORD) : client.connect(HOSTNAME.c_str())) {
+      Serial.println("Ligado ao broker mqtt " + String(MQTT_SERVER));
+      //SUBSCRIÇÃO DE TOPICOS
+      client.subscribe(MQTT_COMMAND_TOPIC);
+    }
+  }
+  return client.connected();
+}
+
+//Chamada de recepção de mensagem
+void callback(char* topic, byte* payload, unsigned int length)
+{
+
+
+  String payloadStr = "";
+  for (int i = 0; i < length; i++) {
+    payloadStr += (char)payload[i];
+  }
+  String topicStr = String(topic);
+
+  if (topicStr.equals(MQTT_COMMAND_TOPIC)) {
+    if (payloadStr.equals("ON")) {
+      digitalWrite(emergencia, HIGH);
+      client.publish(MQTT_STATE_TOPIC, "ON");
+      Serial.println("LED LIGOU");
+
+    } else if (payloadStr.equals("OFF")) {
+      digitalWrite(emergencia, LOW);
+      client.publish(MQTT_STATE_TOPIC, "OFF");
+      Serial.println("LED DESLIGOU");
+    }
+
+  }
+
+}
+
 
 void setup()
 {
+  Serial.begin(9600);
+  Serial.println("");
+  Serial.println("Start");
+  WiFiManager wifiManager;
+  wifiManager.autoConnect("AutoConnectAP");
+  Serial.println("connected...yeey :)");
+  Serial.println("");
+  Serial.println("");
+ 
+  setClock();
+  Serial.println(FirmwareVer);
+  Serial.println("");
+  Serial.println("");
+  Serial.println("");
+  FirmwareUpdate();
+  Serial.println(FirmwareVer);
+  Serial.println("");
+  Serial.println("");
+  pinMode(LED_BUILTIN, OUTPUT); // Initialize the BUILTIN_LED pin as an output   
+  client.setCallback(callback);
 
-    Serial.begin(9600);
-    WiFiManager wm;
-    // Reset Wifi
-    pinMode(LED_BUILTIN, OUTPUT);
-    Serial.println();
-    Serial.println("Reset Wifi");
-    Serial.println("-----------------------------------");
-
-    if (drd.detectDoubleReset())
-    {
-        Serial.println("Double Reset Detected");
-        digitalWrite(LED_BUILTIN, LOW);
-        Serial.println("Memory reset");
-        wm.resetSettings();
-
-        Serial.println("Restarting...");
-        ESP.restart(); // builtin, safely restarts the ESP.
-    }
-    else
-    {
-        Serial.println("No Reset");
-        digitalWrite(LED_BUILTIN, HIGH);
-    }
-
-    // Wifi
-    //  wm.resetSettings();
-    bool res;
-    // res = wm.autoConnect();
-    // res = wm.autoConnect("AutoConnectAP");
-    res = wm.autoConnect("AutoConnectAP", "minecraft"); // password protected ap
-
-    if (!res)
-    {
-        Serial.println("Failed to connect");
-        // ESP.restart();
-    }
-    else
-    {
-        // if you get here you have connected to the WiFi
-        Serial.println("connected...yeey :)");
-    }
-
-    for (uint8_t t = 4; t > 0; t--)
-    {
-        Serial.printf("[SETUP] WAIT %d...\n", t);
-        Serial.flush();
-        delay(1000);
-    }
-    
-    Serial.println(FirmwareVer);
-    FirmwareUpdate();
-    Serial.println(FirmwareVer);
-
-}
-
-
-
-void fota(){
+  delay(1500);
+  pinMode(recepcao, INPUT);
+  pinMode(garrafa, INPUT);
+  pinMode(emergencia, OUTPUT);
+  pinMode(agua, OUTPUT);
   
 }
 
+
+
 void loop()
 {
+  if (WiFi.status() == WL_CONNECTED) {
+    if (checkMqttConnection()) {
+      client.loop();
+    }
+  }
 
-    //drd.loop();
+  long now = millis();
+  if (now - lastMsg > 3000) {
+    if (digitalRead(recepcao) == 1)
+    {
+      Serial.println("Botão não pressionado");
+      //digitalWrite(D9, LOW);
+      snprintf (msg, MSG_BUFFER_SIZE, "OFF", value);
+    }
+    if (digitalRead(recepcao) == 0)
+    {
+      Serial.println("Botão pressionado");
+      //digitalWrite(D9, HIGH);
+      snprintf (msg, MSG_BUFFER_SIZE, "ON", value);
+
+    }
+
+    long now = millis();
+    if (now - lastMsg > 3000) {
+      lastMsg = now;
+      ++value;
+      //snprintf (msg, 75, "hello world #%ld", value);
+      Serial.print("Publica mensagem: ");
+      Serial.println(msg);
+      client.publish(MQTT_COMMAND_TOPIC, msg);
+
+    }
+  }
 }
