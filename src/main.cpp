@@ -3,7 +3,6 @@
 #include <WiFiManager.h>
 #include <DoubleResetDetector.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecure.h>
@@ -16,7 +15,6 @@ const String FirmwareVer={"2.0"};
 #define URL_fw_Bin "https://github.com/lk1640/LampadaDentista/raw/master/test/firmware.bin"
 const char* host = "raw.githubusercontent.com";
 const int httpsPort = 443;
-
 
 // DigiCert High Assurance EV Root CA
 const char trustRoot[] PROGMEM = R"EOF(
@@ -43,7 +41,6 @@ YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk
 CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
 -----END CERTIFICATE-----
 )EOF";
-
 X509List cert(trustRoot);
 
 
